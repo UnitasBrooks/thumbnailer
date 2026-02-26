@@ -26,7 +26,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         opts
     )?;
 
-    // Find best video stream
     let input_stream = ictx
         .streams()
         .best(media::Type::Video)
@@ -34,7 +33,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let video_stream_index = input_stream.index();
 
-    // Create decoder
     let context_decoder =
         codec::context::Context::from_parameters(input_stream.parameters())?;
 

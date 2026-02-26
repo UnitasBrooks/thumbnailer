@@ -1,4 +1,4 @@
-use ffmpeg_next as ffmpeg;
+use ffmpeg_next::{self as ffmpeg, Dictionary};
 
 use ffmpeg::{
     codec,
@@ -14,10 +14,17 @@ use std::io::Write;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     ffmpeg::init()?;
 
-    // Example RTP TS input
     let input_url = "rtp://127.0.0.1:5004";
 
-    let mut ictx = format::input(&input_url)?;
+    let mut opts = Dictionary::new();
+    opts.set("fflags", "+genpts");
+    opts.set("analyzeduration", "5000000");
+    opts.set("probesize", "5000000");
+
+    let mut ictx = format::input_with_dictionary(
+        &input_url,
+        opts
+    )?;
 
     // Find best video stream
     let input_stream = ictx
@@ -32,20 +39,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         codec::context::Context::from_parameters(input_stream.parameters())?;
 
     let mut decoder = context_decoder.decoder().video()?;
-
-    // Scaling context (to RGB)
-    let mut scaler = Context::get(
-        decoder.format(),
-        decoder.width(),
-        decoder.height(),
-        ffmpeg::format::Pixel::RGB24,
-        decoder.width(),
-        decoder.height(),
-        Flags::BILINEAR,
-    )?;
-
     let mut decoded = frame::Video::empty();
-    let mut rgb_frame = frame::Video::empty();
+
 
     println!("Waiting for first keyframe...");
 
@@ -60,13 +55,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             if decoded.is_key() {
                 println!("Found keyframe!");
-
-                scaler.run(&decoded, &mut rgb_frame)?;
-
-                save_as_jpeg(&rgb_frame, "first_frame.jpg")?;
-
-                println!("Saved first_frame.jpg");
-
+                save_as_jpeg(&decoded, "frame.raw")?;
+                println!("Saved frame.raw");
                 return Ok(());
             }
         }
@@ -80,27 +70,39 @@ fn save_as_jpeg(
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
-    use ffmpeg::codec::Id;
-    use ffmpeg::encoder;
-
-    let codec = encoder::find(Id::MJPEG).ok_or("MJPEG codec not found")?;
-
-    let mut context = codec::context::Context::new();
-    let mut encoder = context.encoder().video()?;
-
-    encoder.set_width(frame.width());
-    encoder.set_height(frame.height());
-    encoder.set_format(ffmpeg::format::Pixel::YUVJ420P);
-
-    let mut encoder = encoder.open_as(codec)?;
-
-    encoder.send_frame(frame)?;
-
-    let mut packet = ffmpeg::Packet::empty();
-    encoder.receive_packet(&mut packet)?;
-
     let mut file = File::create(path)?;
-    file.write_all(packet.data().unwrap())?;
+    println!("format: {:?}", frame.format());
+    println!("planes: {}", frame.planes());
+    println!("width: {}", frame.width());
+    println!("height: {}", frame.height());
+    println!("stride0: {}", frame.stride(0));
+    println!("data0 len: {}", frame.data(0).len());
+    let width = frame.width() as usize;
+    let height = frame.height() as usize;
+
+    let stride_y = frame.stride(0) as usize;
+    let data_y = frame.data(0);
+
+    for y in 0..height {
+        let row = &data_y[y * stride_y .. y * stride_y + width];
+        file.write_all(row)?;
+    }
+
+    let stride_u = frame.stride(1) as usize;
+    let data_u = frame.data(1);
+
+    for y in 0..height/2 {
+        let row = &data_u[y * stride_u .. y * stride_u + width/2];
+        file.write_all(row)?;
+    }
+
+    let stride_v = frame.stride(2) as usize;
+    let data_v = frame.data(2);
+
+    for y in 0..height/2 {
+        let row = &data_v[y * stride_v .. y * stride_v + width/2];
+        file.write_all(row)?;
+    }
 
     Ok(())
 }

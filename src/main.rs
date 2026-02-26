@@ -5,7 +5,6 @@ use ffmpeg::{
     format,
     frame,
     media,
-    software::scaling::{context::Context, flag::Flags},
 };
 
 use std::fs::File;

@@ -73,13 +73,23 @@ fn save_as_jpeg(
     println!("planes: {}", frame.planes());
     println!("width: {}", frame.width());
     println!("height: {}", frame.height());
-    println!("stride0: {}", frame.stride(0));
-    println!("data0 len: {}", frame.data(0).len());
+    println!("stride_y: {}", frame.stride(0));
+    println!("stride_u: {}", frame.stride(1));
+    println!("stride_v: {}", frame.stride(2));
+    println!("data_y len: {}", frame.data(0).len());
+    println!("data_u len: {}", frame.data(1).len());
+    println!("data_v len: {}", frame.data(2).len());
     let width = frame.width() as usize;
     let height = frame.height() as usize;
 
     let stride_y = frame.stride(0) as usize;
     let data_y = frame.data(0);
+
+    let mut height_div = 2;
+
+    if frame.format() == format::Pixel::YUV422P {
+        height_div = 1
+    }
 
     for y in 0..height {
         let row = &data_y[y * stride_y .. y * stride_y + width];
@@ -89,7 +99,7 @@ fn save_as_jpeg(
     let stride_u = frame.stride(1) as usize;
     let data_u = frame.data(1);
 
-    for y in 0..height/2 {
+    for y in 0..height/height_div {
         let row = &data_u[y * stride_u .. y * stride_u + width/2];
         file.write_all(row)?;
     }
@@ -97,7 +107,7 @@ fn save_as_jpeg(
     let stride_v = frame.stride(2) as usize;
     let data_v = frame.data(2);
 
-    for y in 0..height/2 {
+    for y in 0..height/height_div {
         let row = &data_v[y * stride_v .. y * stride_v + width/2];
         file.write_all(row)?;
     }

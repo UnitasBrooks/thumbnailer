@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             if decoded.is_key() {
                 println!("Found keyframe!");
-                save_as_jpeg(&decoded, "frame.raw")?;
+                save_frame(&decoded, "frame.raw")?;
                 println!("Saved frame.raw");
                 return Ok(());
             }
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn save_as_jpeg(
+fn save_frame(
     frame: &frame::Video,
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
